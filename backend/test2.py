@@ -11,62 +11,51 @@ import base64
 
 """Initilises Flask app and enables CORS"""
 app = Flask(__name__)
-CORS(app) 
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 last_retrieved_booking = 0
 
 def connect_to_head_office_sql_db():
   """Connects to the Head Office Azure SQL database."""
-  try:
-    server = 'ict320-task3.database.windows.net' 
-    database = 'camping'
-    username = 'ict320-admin'
-    password = 'campingPassword!'   
-    driver= '{ODBC Driver 18 for SQL Server}'
-
-    connection_string = 'Driver='+driver+';Server=tcp:'+server+',1433;Database='+database+';Uid='+username+';PWD='+password+';Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;'
-    connection = pyodbc.connect(connection_string)
-    return connection
+  server = 'ict320-task3.database.windows.net' 
+  database = 'camping'
+  username = 'ict320-admin'
+  password = 'campingPassword!'   
+  driver= '{ODBC Driver 18 for SQL Server}'
   
-  except Exception as e:
-    print(f"Error connecting to Head Office SQL database: {e}")
-    return None
+  connection_string = 'Driver='+driver+';Server=tcp:'+server+',1433;Database='+database+';Uid='+username+';PWD='+password+';Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;'
+  connection = pyodbc.connect(connection_string)
+  return connection
 
+connection_to_head_office = connect_to_head_office_sql_db()
 
 def connect_to_campground_nosql_db():
   """Connects to the Campground Azure NoSQL Document database."""
-  try:
-    username = 'ict320-task3-db'
-    password =  'Bsrr8WFD1CDFhQxXuFSZKiQjbUEokX1syHWPnXO7kcStKQNq3oVa7eybpxeEy8e5UnolUBIHOCcwACDb7mkUqg=='  
-    url = 'ict320-task3-db.mongo.cosmos.azure.com:10255/'
-    db_name = 'campground_db'
+  username = 'ict320-task3-db'
+  password = 'Bsrr8WFD1CDFhQxXuFSZKiQjbUEokX1syHWPnXO7kcStKQNq3oVa7eybpxeEy8e5UnolUBIHOCcwACDb7mkUqg=='  
+  url = 'ict320-task3-db.mongo.cosmos.azure.com:10255/'
+  db_name = 'campground_db'
 
-    uri = f'mongodb://{username}:{password}@{url}?ssl=true&retrywrites=false&replicaSet=globaldb&maxIdleTimeMS=120000&appName=@{username}@'
-    mongo_client = MongoClient(uri, tlsCAFile=certifi.where())
-    campground_db = mongo_client[db_name]
-    return campground_db
-  
-  except Exception as e:
-    print(f"Error connecting to Campground MongoDB: {e}")
-    return None
+  uri = f'mongodb://{username}:{password}@{url}?ssl=true&retrywrites=false&replicaSet=globaldb&maxIdleTimeMS=120000&appName=@{username}@'
+  mongo_client = MongoClient(uri, tlsCAFile=certifi.where())
+  campground_db = mongo_client[db_name]
+  return campground_db
 
-"""Initilises connections"""
-connection_to_head_office = connect_to_head_office_sql_db()
-campground_db = connect_to_campground_nosql_db()
-# campsites_col = campground_db["campsites"] if campground_db is not None else None
-# bookings_col = campground_db["bookings"] if campground_db is not None else None
-campsites_col = campground_db["campsites"]
-bookings_col = campground_db["bookings"] 
+
+
+def show_records(connection, mytable):
+    """Shows all the records for a given table."""
+    cursor = connection.cursor()
+    cursor.execute("SELECT * FROM " + mytable)
+    rows = cursor.fetchall()
+    for row in rows:
+        print(row)
 
 
 def populate_campsites():
     """Populates campsites collection with data."""
-    
-    if campsites_col is None:
-        print("No MongoDB collection available for campsites.")
-        return
-    
     num_campsites = 90
+
     start_available_date = datetime.strptime('2024-10-05', '%Y-%m-%d')
     end_available_date = datetime.strptime('2024-11-30', '%Y-%m-%d')
     saturdays = []
@@ -118,10 +107,6 @@ def extract_booking_details(row):
 
 def find_available_campsites(campsite_size_needed, num_sites_needed, arrival_date):
     """Finds available campsites for a given arrival date, size and number of campsites needed."""
-    if campsites_col is None:
-        print("Campsites collection is not initialised.")
-        return None
-    
     available_campsites = []
     suitable_campsites = list(campsites_col.find({"site_size": campsite_size_needed}, {'_id':0}))
     
@@ -130,10 +115,10 @@ def find_available_campsites(campsite_size_needed, num_sites_needed, arrival_dat
             available_campsites.append(site)
         if len(available_campsites) == num_sites_needed:
             break
+    
     return available_campsites if len(available_campsites) == num_sites_needed else None
 
 def get_customer(customer_id, cursor):
-    """Retrieves a customer record based on customer ID."""
     cursor.execute(f"""SELECT * FROM camping.customers WHERE customer_id ={customer_id}""")
     row = cursor.fetchone()
     if row:
@@ -152,11 +137,10 @@ def extract_customer_details(row):
     }
 
 def calculate_total_cost(available_campsites):
-    """Calculates the total cost based on the chosen campsites' daily rates."""
+    """Calculates the total cost based of the chosen campsites."""
     total_cost = 0
     for site in available_campsites:
         rate = site.get("daily_rate")
-        rate *= 7 # customers stay for 7 nights
         total_cost += rate
     return total_cost
 
@@ -185,6 +169,7 @@ def create_pdf(confirmation_details):
 
 def prepare_booking_document(booking_id, campground_id, customer, available_campsites, booking_date, arrival_date):
     """Prepares a booking document."""
+    
     total_cost = calculate_total_cost(available_campsites)
     departure_date = datetime.strptime(arrival_date, "%Y-%m-%d")+timedelta(days=7)
 
@@ -235,20 +220,18 @@ def prepare_booking_document(booking_id, campground_id, customer, available_camp
 def update_campsite_availability(available_campsites, arrival_date):
     """Updates the availability of booked campsites."""
     for site in available_campsites:
-        site_number = site["site_number"]
         campsites_col.update_one(
-            {"site_number": site_number},
+            {"site_number": site["site_number"]},
             {"$pull": {"available_dates": arrival_date}}
         )
-        print(f"Campsite {site_number} availability updated.")
 
-"""Endpoint to fetch and process the booking"""
 @app.get('/get-booking')
 def get_booking():
     global last_retrieved_booking
     cursor = connection_to_head_office.cursor()
-
+    print("Before getting booking")
     booking = get_next_booking(cursor)
+    print("After getting booking")
     if not booking:
         return jsonify({"error": "No new bookings found."}), 404
 
@@ -256,17 +239,15 @@ def get_booking():
     campground_id = "1160780"
 
     available_campsites = find_available_campsites(campsite_size, num_campsites, arrival_date)
+    
     if not available_campsites:
         return jsonify({"error": "No suitable campsites available for this booking."}), 400
     
     customer = get_customer(customer_id, cursor)
-    if not customer:
-        return jsonify({"error": "Customer not found."}), 404
 
     booking_document = prepare_booking_document(booking_id, campground_id, customer, available_campsites, booking_date, arrival_date)
+    bookings_col.insert_one(booking_document)
 
-    if bookings_col is not None:
-        bookings_col.insert_one(booking_document)
     
     update_campsite_availability(available_campsites, arrival_date)
 
@@ -283,6 +264,9 @@ def flask():
 # show_records(connection_to_head_office, "camping.booking")
 
 
+campground_db = connect_to_campground_nosql_db()
+campsites_col = campground_db["campsites"]
+bookings_col = campground_db["bookings"]
 
 # my_docs = my_col.find({}, {'_id':0})
 
@@ -295,12 +279,3 @@ if __name__ == '__main__':
   if campsites_col.count_documents({}) == 0:
      populate_campsites()
   app.run(debug=True)
-
-
-# def show_records(connection, mytable):
-#     """Shows all the records for a given table."""
-#     cursor = connection.cursor()
-#     cursor.execute("SELECT * FROM " + mytable)
-#     rows = cursor.fetchall()
-#     for row in rows:
-#         print(row)
