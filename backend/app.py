@@ -14,6 +14,9 @@ app = Flask(__name__)
 CORS(app) 
 
 last_retrieved_booking = 0
+last_retrieved_booking_date = "2024-08-15"
+total_bookings_today = 0
+total_sales_today = 0
 
 def connect_to_head_office_sql_db():
   """Connects to the Head Office Azure SQL database."""
@@ -50,13 +53,30 @@ def connect_to_campground_nosql_db():
     print(f"Error connecting to Campground MongoDB: {e}")
     return None
 
+def connect_to_campground_sql_db():
+  """Connects to the Campground Azure SQL database."""
+  try:
+    server = 'ict320-task3-summary-server.database.windows.net' 
+    database = 'summary'
+    username = 'db-admin'
+    password = 'summaryPassword!'   
+    driver= '{ODBC Driver 18 for SQL Server}'
+
+    connection_string = 'Driver='+driver+';Server=tcp:'+server+',1433;Database='+database+';Uid='+username+';PWD='+password+';Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;'
+    connection = pyodbc.connect(connection_string)
+    return connection
+  
+  except Exception as e:
+    print(f"Error connecting to Head Office SQL database: {e}")
+    return None
+  
+
 """Initilises connections"""
 connection_to_head_office = connect_to_head_office_sql_db()
 campground_db = connect_to_campground_nosql_db()
-# campsites_col = campground_db["campsites"] if campground_db is not None else None
-# bookings_col = campground_db["bookings"] if campground_db is not None else None
 campsites_col = campground_db["campsites"]
 bookings_col = campground_db["bookings"] 
+connection_to_summary_db = connect_to_campground_sql_db()
 
 
 def populate_campsites():
@@ -96,6 +116,16 @@ def populate_campsites():
         
     campsites_col.insert_many(campsites)
     print(f"{num_campsites} campsites populated successfully!")
+
+def create_summary_table():
+    cursor = connection_to_summary_db.cursor()
+    cursor.execute("""
+        IF OBJECT_ID('summaries', 'U') IS NOT NULL
+        DROP TABLE summaries;
+    """)
+    cursor.execute(f"""CREATE TABLE summaries (summary_id int IDENTITY(1,1) PRIMARY KEY, summary_date date NULL, total_bookings int NULL, total_sales decimal(10, 2) NULL)""")
+    connection_to_summary_db.commit()
+
 
 def get_next_booking(cursor):
     """Retrieves the next booking from the Head Office SQL database."""
@@ -242,24 +272,58 @@ def update_campsite_availability(available_campsites, arrival_date):
         )
         print(f"Campsite {site_number} availability updated.")
 
+def send_daily_summary_to_head_office(cursor_head_office, campground_id, booking_date, total_bookings_today, total_sales_today):
+    """Stores the summary of the Campground 1160780 bookings for the day in Head Office SQL db."""
+    try:
+        query = """
+        INSERT INTO camping.summary(campground_id, summary_date, total_sales, total_bookings)
+        VALUES (?, ?, ?, ?)
+        """
+        cursor_head_office.execute(query, (campground_id, booking_date, total_sales_today, total_bookings_today))
+        connection_to_head_office.commit()
+        print(f"Daily summary for {booking_date} stored in Head Office db successfully.")
+    except Exception as e:
+        print(f"Error storing daily summary in Head Office db: {e}")
+
+def store_daily_summary(cursor_summary_db, cursor_head_office, booking_date, total_bookings_today, total_sales_today, campground_id):
+    """Stores the summary of the bookings for the day in Campground SQL db."""
+    try:
+        query = """
+        INSERT INTO summaries(summary_date, total_bookings, total_sales)
+        VALUES (?, ?, ?)
+        """
+        cursor_summary_db.execute(query, (booking_date, total_bookings_today, total_sales_today))
+        connection_to_summary_db.commit()
+        print(f"Daily summary for {booking_date} stored in Campground summary db successfully.")
+        send_daily_summary_to_head_office(cursor_head_office, campground_id, booking_date, total_bookings_today, total_sales_today)
+    except Exception as e:
+        print(f"Error storing daily summary: {e}")
+
 """Endpoint to fetch and process the booking"""
 @app.get('/get-booking')
 def get_booking():
-    global last_retrieved_booking
-    cursor = connection_to_head_office.cursor()
+    global last_retrieved_booking, last_retrieved_booking_date, total_bookings_today, total_sales_today
+    cursor_head_office = connection_to_head_office.cursor()
+    cursor_summary_db = connection_to_summary_db.cursor()
 
-    booking = get_next_booking(cursor)
+    booking = get_next_booking(cursor_head_office)
     if not booking:
         return jsonify({"error": "No new bookings found."}), 404
 
     booking_id, customer_id, booking_date, arrival_date, campground_id, campsite_size, num_campsites = extract_booking_details(booking)
     campground_id = "1160780"
 
+    if booking_date!=last_retrieved_booking_date:
+       store_daily_summary(cursor_summary_db, cursor_head_office, last_retrieved_booking_date, total_bookings_today, total_sales_today, campground_id)
+       last_retrieved_booking_date=booking_date
+       total_bookings_today=0
+       total_sales_today=0
+
     available_campsites = find_available_campsites(campsite_size, num_campsites, arrival_date)
     if not available_campsites:
         return jsonify({"error": "No suitable campsites available for this booking."}), 400
     
-    customer = get_customer(customer_id, cursor)
+    customer = get_customer(customer_id, cursor_head_office)
     if not customer:
         return jsonify({"error": "Customer not found."}), 404
 
@@ -267,6 +331,9 @@ def get_booking():
 
     if bookings_col is not None:
         bookings_col.insert_one(booking_document)
+    
+    total_bookings_today+=1
+    total_sales_today+=booking_document["total_cost"]
     
     update_campsite_availability(available_campsites, arrival_date)
 
@@ -294,6 +361,7 @@ def flask():
 if __name__ == '__main__':
   if campsites_col.count_documents({}) == 0:
      populate_campsites()
+  create_summary_table()
   app.run(debug=True)
 
 
