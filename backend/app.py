@@ -301,10 +301,10 @@ def store_daily_summary(cursor_summary_db, cursor_head_office, daily_summary_det
         INSERT INTO summaries(summary_date, total_bookings, total_sales)
         VALUES (?, ?, ?)
         """
-        cursor_summary_db.execute(query, (summary_date, total_bookings_today, total_sales_today))
+        cursor_summary_db.execute(query, (summary_date, total_bookings, total_sales))
         connection_to_summary_db.commit()
         print(f"Daily summary for {summary_date} stored in Campground summary db successfully.")
-        send_daily_summary_to_head_office(cursor_head_office, campground_id, booking_date, total_bookings_today, total_sales_today)
+        send_daily_summary_to_head_office(cursor_head_office, campground_id, summary_date, total_bookings, total_sales)
     except Exception as e:
         print(f"Error storing daily summary: {e}")
 
@@ -313,6 +313,7 @@ def store_daily_summary(cursor_summary_db, cursor_head_office, daily_summary_det
 def get_booking():
     try:
         global last_retrieved_booking, last_retrieved_booking_date, total_bookings_today, total_sales_today
+        daily_summary_details = None
         cursor_head_office = connection_to_head_office.cursor()
         cursor_summary_db = connection_to_summary_db.cursor()
 
@@ -324,7 +325,7 @@ def get_booking():
         campground_id = "1160780"
 
         if booking_date!=last_retrieved_booking_date:
-            daily_summary_details = {"summary_date":last_retrieved_booking_date, "total_bookings":total_bookings_today, "total_sales":total_sales_today}
+            daily_summary_details = {"summary_date":last_retrieved_booking_date, "total_bookings":total_bookings_today, "total_sales":f"{total_sales_today:.2f}"}
             store_daily_summary(cursor_summary_db, cursor_head_office, daily_summary_details, campground_id)
             #store_daily_summary(cursor_summary_db, cursor_head_office, last_retrieved_booking_date, total_bookings_today, total_sales_today, campground_id)
             last_retrieved_booking_date=booking_date
@@ -357,6 +358,33 @@ def get_booking():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+"""Endpoint to fetch existing in dbs bookings and summaries"""
+@app.get('/fetch-from-db')
+def get_existing_data():
+    try:
+        bookings = bookings_col.find()
+        existing_bookings = []
+        for booking in bookings:
+            prepared_booking = {key: booking[key] for key in booking if key != "_id"}
+            existing_bookings.insert(0, prepared_booking)
+        
+        cursor_summary = connection_to_summary_db.cursor()
+        cursor_summary.execute("SELECT * FROM dbo.summaries")
+        existing_summaries = cursor_summary.fetchall()
+        # Fetch column names from cursor description
+        columns = [column[0] for column in cursor_summary.description]
+
+        # Convert tuples to dictionaries
+        prepared_summaries = []
+        for row in existing_summaries:
+            row_dict = dict(zip(columns, row))
+            row_dict['summary_date'] = row_dict['summary_date'].strftime('%Y-%m-%d')
+            prepared_summaries.insert(0, row_dict)
+ 
+        return jsonify({'message': 'Existing bookings and summaries retrieved successfully', 'bookings': existing_bookings, 'summaries': prepared_summaries}), 200 
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 """To check if Flask is up"""
 @app.route('/')

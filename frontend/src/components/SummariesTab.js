@@ -4,15 +4,15 @@ function SummariesTab({ summaries }) {
       {summaries.length > 0 ? (
         <table>
           <thead>
-            <th>Summary Id</th>
+            <th>Summary ID</th>
             <th>Summary Date</th>
             <th>Total Bookings</th>
-            <th>Total Sales</th>
+            <th>Total Sales (AUD)</th>
           </thead>
           <tbody>
-          {summaries.map(summary => (
-            <tr>
-              <td>id</td>
+          {summaries.map((summary, index) => (
+            <tr key={index}>
+              <td>{summary.summary_id || summaries.length}</td>
               <td>{summary.summary_date}</td>
               <td>{summary.total_bookings}</td>
               <td>{summary.total_sales}</td>
