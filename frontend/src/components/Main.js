@@ -78,19 +78,20 @@ const Main = () => {
     };
 
     return (
-        <div className="container">
+        <div className="wrapper">
             <button className="get-booking-btn" onClick={handleGetBooking}>Get the Booking</button>
-            <div className="tabs">
-                <button onClick={() => setActiveTab('bookings')} className={activeTab === 'bookings' ? 'active' : ''}>Bookings</button>
-                <button onClick={() => setActiveTab('summaries')} className={activeTab === 'summaries' ? 'active' : ''}>Summaries</button>
+            <div className="info">
+                <div className="tabs">
+                    <button onClick={() => setActiveTab('bookings')} className={activeTab === 'bookings' ? 'active' : ''}>Bookings</button>
+                    <button onClick={() => setActiveTab('summaries')} className={activeTab === 'summaries' ? 'active' : ''}>Summaries</button>
+                </div>
+                {activeTab === 'bookings' ? (
+                    <BookingsTab bookings={bookings} />
+                ) : (
+                    <SummariesTab summaries={summaries} />
+                )}
             </div>
-            {activeTab === 'bookings' ? (
-                <BookingsTab bookings={bookings} />
-            ) : (
-                <SummariesTab summaries={summaries} />
-            )}
         </div>
-
     );
 }
 

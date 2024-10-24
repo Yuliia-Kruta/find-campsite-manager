@@ -1,32 +1,130 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@100;400;500;600;700&display=swap');
 
-/*
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Poppins', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+  background-color: #f4f4f4;
+}
+
+.wrapper{
+  width: 80vw;
+  max-width: 1200px;
+  color: black;
+  border-radius: 10px;
+  padding: 30px 40px;
+  margin: 50px 0 0 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.get-booking-btn{
+  width: 200px;
+  height: 45px;
+  background-color: #20948b;
+  border: none;
+  outline: none;
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, .1);
+  cursor: pointer;
+  font-size: 16px;
+  color: #f4f4f4;
+  font-weight: 700;
+  justify-self: center;
+}
+
+/* Tabs buttons */
+
 .tabs {
+  display: flex;
+  justify-content: center; 
   margin: 20px 0;
+  gap: 10px; 
 }
 
 .tabs button {
-  margin-right: 10px;
+  border: 2px solid #20948b;
+  outline: none;
+  padding: 12px 20px; 
+  font-size: 16px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease, color 0.3s ease; 
+}
+
+.tabs button:hover {
+  box-shadow: 0 0 8px #65b3ac;
 }
 
 .tabs button.active {
-  font-weight: bold;
-  color: blue;
+  font-weight: 700;
+  background-color: #65b3ac; 
+  background-color: #20948b;
+  color: white;
+  box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1); 
+}
+
+.tabs button:not(.active) {
+  opacity: 0.8;
+}
+
+.tabs button:not(.active):hover {
+  opacity: 1;
+}
+
+/* Table Section */
+
+.info{
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  margin: 20px 0 0 0;
+  width: 100%;
+}
+
+.bookings-tab, .summaries-tab {
+  width: 100%;
+  margin: 20px auto;
 }
 
 table {
-  width: 100%;
   border-collapse: collapse;
 }
 
+thead{
+  border-bottom: 2px solid #ccc;
+}
+
+tbody tr{
+  border-bottom: 2px solid #dad9d9;
+}
+tbody tr:hover {
+  background-color: #dad9d9;
+}
+
 th, td {
-  padding: 10px;
-  border: 1px solid #ccc;
+  padding: 14px;
   text-align: left;
 }
 
-ul {
-  list-style-type: none;
-  padding: 0;
-}/*
+td a {
+  text-decoration: none;
+  color: #20948b;
+}
 
-/*Start is here*/
+td a:hover{
+  text-decoration: none;
+  color: #0f7d74;
+  text-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+}
+
