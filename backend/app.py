@@ -32,8 +32,9 @@ def connect_to_head_office_sql_db():
     return connection
   
   except Exception as e:
-    print(f"Error connecting to Head Office SQL database: {e}")
-    return None
+    raise Exception(f"Error connecting to Head Office SQL database: {e}")
+    # print(f"Error connecting to Head Office SQL database: {e}")
+    # return None
 
 
 def connect_to_campground_nosql_db():
@@ -50,8 +51,9 @@ def connect_to_campground_nosql_db():
     return campground_db
   
   except Exception as e:
-    print(f"Error connecting to Campground MongoDB: {e}")
-    return None
+    raise Exception(f"Error connecting to Campground MongoDB: {e}")
+    #print(f"Error connecting to Campground MongoDB: {e}")
+    #return None
 
 def connect_to_campground_sql_db():
   """Connects to the Campground Azure SQL database."""
@@ -67,16 +69,20 @@ def connect_to_campground_sql_db():
     return connection
   
   except Exception as e:
-    print(f"Error connecting to Head Office SQL database: {e}")
-    return None
+      raise Exception(f"Error connecting to Campground SQL database: {e}")
+    #print(f"Error connecting to Head Office SQL database: {e}")
+    #return None
   
 
 """Initilises connections"""
-connection_to_head_office = connect_to_head_office_sql_db()
-campground_db = connect_to_campground_nosql_db()
-campsites_col = campground_db["campsites"]
-bookings_col = campground_db["bookings"] 
-connection_to_summary_db = connect_to_campground_sql_db()
+try:
+    connection_to_head_office = connect_to_head_office_sql_db()
+    campground_db = connect_to_campground_nosql_db()
+    campsites_col = campground_db["campsites"]
+    bookings_col = campground_db["bookings"] 
+    connection_to_summary_db = connect_to_campground_sql_db()
+except Exception as e:
+    print(f"Database connection error: {e}")
 
 
 def populate_campsites():
@@ -285,62 +291,72 @@ def send_daily_summary_to_head_office(cursor_head_office, campground_id, booking
     except Exception as e:
         print(f"Error storing daily summary in Head Office db: {e}")
 
-def store_daily_summary(cursor_summary_db, cursor_head_office, booking_date, total_bookings_today, total_sales_today, campground_id):
+def store_daily_summary(cursor_summary_db, cursor_head_office, daily_summary_details, campground_id):
     """Stores the summary of the bookings for the day in Campground SQL db."""
     try:
+        summary_date = daily_summary_details["summary_date"]
+        total_bookings = daily_summary_details["total_bookings"]
+        total_sales = daily_summary_details["total_sales"]
         query = """
         INSERT INTO summaries(summary_date, total_bookings, total_sales)
         VALUES (?, ?, ?)
         """
-        cursor_summary_db.execute(query, (booking_date, total_bookings_today, total_sales_today))
+        cursor_summary_db.execute(query, (summary_date, total_bookings_today, total_sales_today))
         connection_to_summary_db.commit()
-        print(f"Daily summary for {booking_date} stored in Campground summary db successfully.")
+        print(f"Daily summary for {summary_date} stored in Campground summary db successfully.")
         send_daily_summary_to_head_office(cursor_head_office, campground_id, booking_date, total_bookings_today, total_sales_today)
     except Exception as e:
         print(f"Error storing daily summary: {e}")
 
 """Endpoint to fetch and process the booking"""
-@app.get('/get-booking')
+@app.post('/get-booking')
 def get_booking():
-    global last_retrieved_booking, last_retrieved_booking_date, total_bookings_today, total_sales_today
-    cursor_head_office = connection_to_head_office.cursor()
-    cursor_summary_db = connection_to_summary_db.cursor()
+    try:
+        global last_retrieved_booking, last_retrieved_booking_date, total_bookings_today, total_sales_today
+        cursor_head_office = connection_to_head_office.cursor()
+        cursor_summary_db = connection_to_summary_db.cursor()
 
-    booking = get_next_booking(cursor_head_office)
-    if not booking:
-        return jsonify({"error": "No new bookings found."}), 404
+        booking = get_next_booking(cursor_head_office)
+        if not booking:
+            return jsonify({"message": "No new bookings found."}), 404
 
-    booking_id, customer_id, booking_date, arrival_date, campground_id, campsite_size, num_campsites = extract_booking_details(booking)
-    campground_id = "1160780"
+        booking_id, customer_id, booking_date, arrival_date, campground_id, campsite_size, num_campsites = extract_booking_details(booking)
+        campground_id = "1160780"
 
-    if booking_date!=last_retrieved_booking_date:
-       store_daily_summary(cursor_summary_db, cursor_head_office, last_retrieved_booking_date, total_bookings_today, total_sales_today, campground_id)
-       last_retrieved_booking_date=booking_date
-       total_bookings_today=0
-       total_sales_today=0
+        if booking_date!=last_retrieved_booking_date:
+            daily_summary_details = {"summary_date":last_retrieved_booking_date, "total_bookings":total_bookings_today, "total_sales":total_sales_today}
+            store_daily_summary(cursor_summary_db, cursor_head_office, daily_summary_details, campground_id)
+            #store_daily_summary(cursor_summary_db, cursor_head_office, last_retrieved_booking_date, total_bookings_today, total_sales_today, campground_id)
+            last_retrieved_booking_date=booking_date
+            total_bookings_today=0
+            total_sales_today=0
 
-    available_campsites = find_available_campsites(campsite_size, num_campsites, arrival_date)
-    if not available_campsites:
-        return jsonify({"error": "No suitable campsites available for this booking."}), 400
+        available_campsites = find_available_campsites(campsite_size, num_campsites, arrival_date)
+        if not available_campsites:
+            return jsonify({"error": "No suitable campsites available for this booking."}), 400
+        
+        customer = get_customer(customer_id, cursor_head_office)
+        if not customer:
+            return jsonify({"error": "Customer not found."}), 404
+
+        booking_document = prepare_booking_document(booking_id, campground_id, customer, available_campsites, booking_date, arrival_date)
+
+        if bookings_col is not None:
+            bookings_col.insert_one(booking_document)
+        
+        total_bookings_today+=1
+        total_sales_today+=booking_document["total_cost"]
+        
+        update_campsite_availability(available_campsites, arrival_date)
+
+        last_retrieved_booking = booking_id
+        booking_document_for_json = {key: booking_document[key] for key in booking_document if key != "_id"}
+        
+        return jsonify({'message': 'Booking was processed successfully', 'booking' : booking_document_for_json, 'summary':daily_summary_details}), 200
     
-    customer = get_customer(customer_id, cursor_head_office)
-    if not customer:
-        return jsonify({"error": "Customer not found."}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-    booking_document = prepare_booking_document(booking_id, campground_id, customer, available_campsites, booking_date, arrival_date)
-
-    if bookings_col is not None:
-        bookings_col.insert_one(booking_document)
-    
-    total_bookings_today+=1
-    total_sales_today+=booking_document["total_cost"]
-    
-    update_campsite_availability(available_campsites, arrival_date)
-
-    last_retrieved_booking = booking_id
-    booking_document_for_json = {key: booking_document[key] for key in booking_document if key != "_id"}
-
-    return jsonify(booking_document_for_json), 200
 
 """To check if Flask is up"""
 @app.route('/')
