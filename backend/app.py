@@ -2,7 +2,7 @@ import pyodbc
 from pymongo import MongoClient
 import certifi
 from datetime import datetime, timedelta
-from flask import Flask, request, jsonify
+from flask import Flask, jsonify
 from flask_cors import CORS
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
@@ -33,8 +33,6 @@ def connect_to_head_office_sql_db():
   
   except Exception as e:
     raise Exception(f"Error connecting to Head Office SQL database: {e}")
-    # print(f"Error connecting to Head Office SQL database: {e}")
-    # return None
 
 
 def connect_to_campground_nosql_db():
@@ -52,8 +50,6 @@ def connect_to_campground_nosql_db():
   
   except Exception as e:
     raise Exception(f"Error connecting to Campground MongoDB: {e}")
-    #print(f"Error connecting to Campground MongoDB: {e}")
-    #return None
 
 def connect_to_campground_sql_db():
   """Connects to the Campground Azure SQL database."""
@@ -70,8 +66,6 @@ def connect_to_campground_sql_db():
   
   except Exception as e:
       raise Exception(f"Error connecting to Campground SQL database: {e}")
-    #print(f"Error connecting to Head Office SQL database: {e}")
-    #return None
   
 
 """Initilises connections"""
@@ -83,11 +77,9 @@ try:
     connection_to_summary_db = connect_to_campground_sql_db()
 except Exception as e:
     print(f"Database connection error: {e}")
-
-
+        
 def populate_campsites():
     """Populates campsites collection with data."""
-    
     if campsites_col is None:
         print("No MongoDB collection available for campsites.")
         return
@@ -96,6 +88,7 @@ def populate_campsites():
     start_available_date = datetime.strptime('2024-10-05', '%Y-%m-%d')
     end_available_date = datetime.strptime('2024-11-30', '%Y-%m-%d')
     saturdays = []
+    # Listing all Saturdays for the 2 month period
     while start_available_date <= end_available_date:
         saturdays.append(start_available_date.strftime('%Y-%m-%d'))
         start_available_date += timedelta(days=7)
@@ -124,6 +117,7 @@ def populate_campsites():
     print(f"{num_campsites} campsites populated successfully!")
 
 def create_summary_table():
+    """Creates a new table in the Campground SQL db for storing summaries."""
     cursor = connection_to_summary_db.cursor()
     cursor.execute("""
         IF OBJECT_ID('summaries', 'U') IS NOT NULL
@@ -169,7 +163,7 @@ def find_available_campsites(campsite_size_needed, num_sites_needed, arrival_dat
     return available_campsites if len(available_campsites) == num_sites_needed else None
 
 def get_customer(customer_id, cursor):
-    """Retrieves a customer record based on customer ID."""
+    """Retrieves a customer record from Head Office db based on customer ID."""
     cursor.execute(f"""SELECT * FROM camping.customers WHERE customer_id ={customer_id}""")
     row = cursor.fetchone()
     if row:
@@ -177,7 +171,7 @@ def get_customer(customer_id, cursor):
     return None
 
 def extract_customer_details(row):
-    """Extracts and formats customer details from SQL customers table from Head Office db."""
+    """Extracts customer details from retrieved record."""
     return {
         "customer_id": row[0],
         "first_name": row[1],
@@ -199,22 +193,15 @@ def calculate_total_cost(available_campsites):
 def create_pdf(confirmation_details):
     """Creates a booking confirmation."""
     buffer = io.BytesIO()
-    
-    # Create a PDF canvas
     c = canvas.Canvas(buffer, pagesize=letter)
-    
-    # Write the confirmation details to the PDF
     text = c.beginText(40, 750)
     text.setFont("Helvetica", 12)
     for line in confirmation_details.splitlines():
         text.textLine(line)
     c.drawText(text)
     
-    # Finish up the PDF
     c.showPage()
     c.save()
-    
-    # Move to the beginning of the StringIO buffer
     buffer.seek(0)
     
     return buffer.getvalue()
@@ -222,8 +209,7 @@ def create_pdf(confirmation_details):
 def prepare_booking_document(booking_id, campground_id, customer, available_campsites, booking_date, arrival_date):
     """Prepares a booking document."""
     total_cost = calculate_total_cost(available_campsites)
-    departure_date = datetime.strptime(arrival_date, "%Y-%m-%d")+timedelta(days=7)
-    departure_date = departure_date.strftime("%Y-%m-%d")
+    departure_date = (datetime.strptime(arrival_date, "%Y-%m-%d")+timedelta(days=7)).strftime("%Y-%m-%d")
 
     booked_campsites = [
         {
@@ -233,7 +219,7 @@ def prepare_booking_document(booking_id, campground_id, customer, available_camp
         }
         for campsite in available_campsites
     ] 
-    # Create a formatted string for campsites
+    # Formatted string for campsites
     campsites_info = "\n\n".join([
     f"        Site Number: {site['site_number']},\n"
     f"        Size: {site['site_size']},\n"
@@ -290,7 +276,7 @@ def update_campsite_availability(available_campsites, arrival_date):
         print(f"Campsite {site_number} availability updated.")
 
 def send_daily_summary_to_head_office(cursor_head_office, campground_id, booking_date, total_bookings_today, total_sales_today):
-    """Stores the summary of the Campground 1160780 bookings for the day in Head Office SQL db."""
+    """Stores the summary of the Campground's #1160780 bookings for the day in Head Office SQL db."""
     try:
         query = """
         INSERT INTO camping.summary(campground_id, summary_date, total_sales, total_bookings)
@@ -335,10 +321,10 @@ def get_booking():
         booking_id, customer_id, booking_date, arrival_date, campground_id, campsite_size, num_campsites = extract_booking_details(booking)
         campground_id = "1160780"
 
+        #Triggers creating the summary
         if booking_date!=last_retrieved_booking_date:
             daily_summary_details = {"summary_date":last_retrieved_booking_date, "total_bookings":total_bookings_today, "total_sales":f"{total_sales_today:.2f}"}
             store_daily_summary(cursor_summary_db, cursor_head_office, daily_summary_details, campground_id)
-            #store_daily_summary(cursor_summary_db, cursor_head_office, last_retrieved_booking_date, total_bookings_today, total_sales_today, campground_id)
             last_retrieved_booking_date=booking_date
             total_bookings_today=0
             total_sales_today=0
@@ -369,7 +355,7 @@ def get_booking():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-"""Endpoint to fetch existing in dbs bookings and summaries"""
+"""Endpoint to fetch existing in databases bookings and summaries"""
 @app.get('/fetch-from-db')
 def get_existing_data():
     try:
@@ -382,10 +368,8 @@ def get_existing_data():
         cursor_summary = connection_to_summary_db.cursor()
         cursor_summary.execute("SELECT * FROM dbo.summaries")
         existing_summaries = cursor_summary.fetchall()
-        # Fetch column names from cursor description
+        #Prepare summaries to be json serialisable
         columns = [column[0] for column in cursor_summary.description]
-
-        # Convert tuples to dictionaries
         prepared_summaries = []
         for row in existing_summaries:
             row_dict = dict(zip(columns, row))
@@ -403,28 +387,8 @@ def get_existing_data():
 def flask():
     return 'Flask server is up!'
 
-# show_records(connection_to_head_office, "camping.booking")
-
-
-
-# my_docs = my_col.find({}, {'_id':0})
-
-
-# Prints all documents in the collection
-# for doc in my_docs:
-  # print(doc['name'], doc['Semester']) 
-
 if __name__ == '__main__':
   if campsites_col.count_documents({}) == 0:
      populate_campsites()
   create_summary_table()
   app.run(debug=True)
-
-
-# def show_records(connection, mytable):
-#     """Shows all the records for a given table."""
-#     cursor = connection.cursor()
-#     cursor.execute("SELECT * FROM " + mytable)
-#     rows = cursor.fetchall()
-#     for row in rows:
-#         print(row)

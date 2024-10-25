@@ -20,8 +20,8 @@ function BookingsTab({ bookings }) {
   const openBookingConfirmation = (confirmationDetails) => {
     const pdfData = `data:application/pdf;base64,${confirmationDetails}`;
     const newWindow = window.open();
-      if (newWindow) {
-        newWindow.document.write(`
+    if (newWindow) {
+      newWindow.document.write(`
           <!DOCTYPE html>
           <html lang="en">
             <head>
@@ -36,8 +36,8 @@ function BookingsTab({ bookings }) {
             </body>
           </html>
         `);
-        newWindow.document.close(); 
-      }
+      newWindow.document.close();
+    }
   };
 
   const filteredBookings = bookings.filter((booking) =>
@@ -52,7 +52,7 @@ function BookingsTab({ bookings }) {
         type="text"
         placeholder="Search by customer name"
         value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)} 
+        onChange={(e) => setSearchQuery(e.target.value)}
         className="search-input"
       />
       {filteredBookings.length > 0 ? (

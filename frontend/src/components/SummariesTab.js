@@ -10,15 +10,15 @@ function SummariesTab({ summaries }) {
             <th>Total Sales (AUD)</th>
           </thead>
           <tbody>
-          {summaries.map((summary, index) => (
-            <tr key={index}>
-              <td>{summary.summary_id || summaries.length}</td>
-              <td>{summary.summary_date}</td>
-              <td>{summary.total_bookings}</td>
-              <td>{summary.total_sales}</td>
+            {summaries.map((summary, index) => (
+              <tr key={index}>
+                <td>{summary.summary_id || summaries.length}</td>
+                <td>{summary.summary_date}</td>
+                <td>{summary.total_bookings}</td>
+                <td>{summary.total_sales}</td>
 
-            </tr>
-          ))}
+              </tr>
+            ))}
           </tbody>
         </table>
       ) : (
