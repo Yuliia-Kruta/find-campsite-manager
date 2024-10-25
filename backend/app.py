@@ -223,6 +223,7 @@ def prepare_booking_document(booking_id, campground_id, customer, available_camp
     """Prepares a booking document."""
     total_cost = calculate_total_cost(available_campsites)
     departure_date = datetime.strptime(arrival_date, "%Y-%m-%d")+timedelta(days=7)
+    departure_date = departure_date.strftime("%Y-%m-%d")
 
     booked_campsites = [
         {
@@ -232,25 +233,35 @@ def prepare_booking_document(booking_id, campground_id, customer, available_camp
         }
         for campsite in available_campsites
     ] 
+    # Create a formatted string for campsites
+    campsites_info = "\n\n".join([
+    f"        Site Number: {site['site_number']},\n"
+    f"        Size: {site['site_size']},\n"
+    f"        Daily Rate: {site['daily_rate']}$"
+    for site in booked_campsites
+])
     
     confirmation_details = f"""
     Booking Confirmation
-    -------------------------
+    ------------------------------------------
     Booking ID: {booking_id}
     Booking Date: {booking_date}
 
     Customer:
-    name: {customer['first_name']} {customer['last_name']}
-    phone: {customer['phone']}
-    address: {customer['address']}, {customer['post_code']}
+        name: {customer['first_name']} {customer['last_name']}
+        phone: {customer['phone']}
+        address: {customer['address']}, {customer['post_code']}
     
     Arrival Date: {arrival_date}
     Departure Date: {departure_date}
-    Number of Campsites: {len(booked_campsites)}
-    Campsites Booked: {booked_campsites}
     
-    Total Cost: ${total_cost}
-    -------------------------
+    Number of Campsites: {len(booked_campsites)}
+    Campsites Booked: 
+    
+{campsites_info}
+    
+    Total Cost: {total_cost}$
+    ------------------------------------------
     Thank you for booking with us!
     """
    
@@ -385,6 +396,7 @@ def get_existing_data():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 """To check if Flask is up"""
 @app.route('/')

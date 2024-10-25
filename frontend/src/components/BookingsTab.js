@@ -5,6 +5,7 @@ function BookingsTab({ bookings }) {
 
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const openModal = (booking) => {
     setSelectedBooking(booking);
@@ -16,9 +17,45 @@ function BookingsTab({ bookings }) {
     setSelectedBooking(null);
   };
 
+  const openBookingConfirmation = (confirmationDetails) => {
+    const pdfData = `data:application/pdf;base64,${confirmationDetails}`;
+    const newWindow = window.open();
+      if (newWindow) {
+        newWindow.document.write(`
+          <!DOCTYPE html>
+          <html lang="en">
+            <head>
+              <title>Booking Confirmation</title>
+              <style>
+                body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+                iframe { width: 100%; height: 100%; border: none; }
+              </style>
+            </head>
+            <body>
+              <iframe src="${pdfData}" width="100%" height="100%" style="border:none;"></iframe>
+            </body>
+          </html>
+        `);
+        newWindow.document.close(); 
+      }
+  };
+
+  const filteredBookings = bookings.filter((booking) =>
+    `${booking.customer.first_name} ${booking.customer.last_name}`
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase())
+  );
+
   return (
     <div className="bookings-tab">
-      {bookings.length > 0 ? (
+      <input
+        type="text"
+        placeholder="Search by customer name"
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)} 
+        className="search-input"
+      />
+      {filteredBookings.length > 0 ? (
         <table>
           <thead>
             <tr>
@@ -30,7 +67,7 @@ function BookingsTab({ bookings }) {
             </tr>
           </thead>
           <tbody>
-            {bookings.map(booking => (
+            {filteredBookings.map(booking => (
               <tr key={booking.booking_id}>
                 <td>{booking.booking_id}</td>
                 <td>{booking.booking_date}</td>
@@ -41,10 +78,15 @@ function BookingsTab({ bookings }) {
                   </button>
                 </td>
                 <td>
-                  <a href={`/api/customer_confirmation/${booking.id}`} target="_blank" rel="noopener noreferrer">
+                  <button className="view-pdf-btn"
+                    onClick={() =>
+                      openBookingConfirmation(booking.confirmation_details)
+                    }
+                  >
                     View Booking Confirmation
-                  </a>
+                  </button>
                 </td>
+
               </tr>
             ))}
 
