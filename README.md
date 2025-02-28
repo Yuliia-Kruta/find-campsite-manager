@@ -1,0 +1,1 @@
+# find-campsite-manager
