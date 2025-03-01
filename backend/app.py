@@ -7,7 +7,11 @@ from flask_cors import CORS
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 import io
+import os
 import base64
+from dotenv import load_dotenv  
+
+load_dotenv()
 
 """Initilises Flask app and enables CORS"""
 app = Flask(__name__)
@@ -21,10 +25,10 @@ total_sales_today = 0
 def connect_to_head_office_sql_db():
   """Connects to the Head Office Azure SQL database."""
   try:
-    server = 'ict320-task3.database.windows.net' 
-    database = 'camping'
-    username = 'ict320-admin'
-    password = 'campingPassword!'   
+    server = os.getenv("CAMPING_SERVER")
+    database = os.getenv("CAMPING_DB_NAME")
+    username = os.getenv("CAMPING_USERNAME")
+    password = os.getenv("CAMPING_PASSWORD")
     driver= '{ODBC Driver 18 for SQL Server}'
 
     connection_string = 'Driver='+driver+';Server=tcp:'+server+',1433;Database='+database+';Uid='+username+';PWD='+password+';Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;'
@@ -38,10 +42,10 @@ def connect_to_head_office_sql_db():
 def connect_to_campground_nosql_db():
   """Connects to the Campground Azure NoSQL Document database."""
   try:
-    username = 'ict320-task3-db'
-    password =  'Bsrr8WFD1CDFhQxXuFSZKiQjbUEokX1syHWPnXO7kcStKQNq3oVa7eybpxeEy8e5UnolUBIHOCcwACDb7mkUqg=='  
-    url = 'ict320-task3-db.mongo.cosmos.azure.com:10255/'
-    db_name = 'campground_db'
+    username = os.getenv("CAMPGROUND_USERNAME")
+    password = os.getenv("CAMPGROUND_PASSWORD")
+    url = os.getenv("CAMPGROUND_URL")
+    db_name = os.getenv("CAMPGROUND_DB_NAME")
 
     uri = f'mongodb://{username}:{password}@{url}?ssl=true&retrywrites=false&replicaSet=globaldb&maxIdleTimeMS=120000&appName=@{username}@'
     mongo_client = MongoClient(uri, tlsCAFile=certifi.where())
@@ -54,10 +58,10 @@ def connect_to_campground_nosql_db():
 def connect_to_campground_sql_db():
   """Connects to the Campground Azure SQL database."""
   try:
-    server = 'ict320-task3-summary-server.database.windows.net' 
-    database = 'summary'
-    username = 'db-admin'
-    password = 'summaryPassword!'   
+    server = os.getenv("SUMMARIES_SERVER")
+    database = os.getenv("SUMMARIES_DB_NAME")
+    username = os.getenv("SUMMARIES_USERNAME")
+    password = os.getenv("SUMMARIES_PASSWORD")
     driver= '{ODBC Driver 18 for SQL Server}'
 
     connection_string = 'Driver='+driver+';Server=tcp:'+server+',1433;Database='+database+';Uid='+username+';PWD='+password+';Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;'
