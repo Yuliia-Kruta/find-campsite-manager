@@ -1,9 +1,9 @@
 <h1 align="center">Find Campsite Manager</h1>
 <br/>
-<img align="left" src="./find-campsite-manager.gif" width="30%" height="auto"/>
-<br/><br/><br/>
+<img align="center" src="./find-campsite-manager.gif" width="70%" height="auto"/>
+<br/>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Project Link: <a target="new" href=update>Live Demo</a>
-<br/><br/><br/><br/><br/>
+<br/>
 <br/>
 <h2>Project description</h2>
 <b>Find Campsite Manager</b> is a robust booking management system implemented in the individual campgrounds to streamline the booking process, ensuring efficient handling of reservations and site allocations. <br/><br/>
