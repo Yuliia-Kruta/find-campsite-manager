@@ -1,10 +1,7 @@
 <h1 align="center">Find Campsite Manager</h1>
 <br/>
 <img align="center" src="./find-campsite-manager.gif" width="70%" height="auto"/>
-<br/>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Project Link: <a target="new" href=update>Live Demo</a>
-<br/>
-<br/>
+
 <h2>Project description</h2>
 <b>Find Campsite Manager</b> is a robust booking management system implemented in the individual campgrounds to streamline the booking process, ensuring efficient handling of reservations and site allocations. <br/><br/>
 The application utilises <b>Python</b> for backend processing and database interactions, with <b>Flask</b> serving as the framework for handling HTTP requests. The application’s frontend built with <b>React</b> provides an intuitive and responsive interface for managers to launch the retrieval and processing of bookings from the Head Office, view and search the booking details and summaries, and retrieve customer booking confirmation in pdf format. <br/>
