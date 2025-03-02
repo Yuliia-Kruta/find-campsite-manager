@@ -38,7 +38,6 @@ def connect_to_head_office_sql_db():
   except Exception as e:
     raise Exception(f"Error connecting to Head Office SQL database: {e}")
 
-
 def connect_to_campground_nosql_db():
   """Connects to the Campground Azure NoSQL Document database."""
   try:
